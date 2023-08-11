@@ -11,6 +11,7 @@ contract MarketplaceTokenNFTDemo is ReentrancyGuard {
     address payable public immutable feeAccount; // the account that receives fees
     uint public immutable feePercent; // the fee percentage on sales
     uint public itemCount;
+    uint public itemSold;
 
     enum ListingStatus {
         Active,
@@ -103,6 +104,23 @@ contract MarketplaceTokenNFTDemo is ReentrancyGuard {
         emit cancellMarket(_itemId, msg.sender);
     }
 
+    function getAllNftsOnSale() public view returns (Item[] memory) {
+        uint totalCount = itemCount;
+        uint unsoldItemCount = itemCount - itemSold;
+        Item[] memory allItemSold = new Item[](unsoldItemCount);
+        uint counter = 0;
+
+        for (uint i = 0; i < totalCount; ++i) {
+            uint currentId = i + 1;
+            Item storage currentItem = items[currentId];
+            if (currentItem.sold == false) {
+                allItemSold[counter] = currentItem;
+                counter++;
+            }
+        }
+        return allItemSold;
+    }
+
     function purchaseItem(uint _itemId) external payable nonReentrant {
         uint _totalPrice = getTotalPrice(_itemId);
         Item storage item = items[_itemId];
@@ -117,6 +135,7 @@ contract MarketplaceTokenNFTDemo is ReentrancyGuard {
         feeAccount.transfer(_totalPrice - item.price);
         // update item to sold
         item.sold = true;
+        itemSold++;
         // transfer nft to buyer
         item.nft.transferFrom(address(this), msg.sender, item.tokenId);
         // emit Bought event
