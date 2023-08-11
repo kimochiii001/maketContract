@@ -4,13 +4,19 @@ pragma solidity ^0.8.9;
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
-// Hello 
+// Hello
 
 contract MarketplaceTokenNFTDemo is ReentrancyGuard {
     // Variables
     address payable public immutable feeAccount; // the account that receives fees
     uint public immutable feePercent; // the fee percentage on sales
     uint public itemCount;
+
+    enum ListingStatus {
+        Active,
+        Sold,
+        Cancelled
+    }
 
     struct Item {
         uint itemId;
@@ -61,6 +67,9 @@ contract MarketplaceTokenNFTDemo is ReentrancyGuard {
         require(_price > 0, "Price must be greater than zero");
         // increment itemCount
         itemCount++;
+
+        ItemToOwner[itemCount] = msg.sender;
+        ownerItemCount[msg.sender]++;
         // transfer nft
         _nft.transferFrom(msg.sender, address(this), _tokenId);
         // add new item to items mapping
@@ -70,11 +79,9 @@ contract MarketplaceTokenNFTDemo is ReentrancyGuard {
             _tokenId,
             _price,
             payable(msg.sender),
-            false
+            false,
+            ListingStatus.Active
         );
-
-        ItemToOwner[itemCount] = msg.sender;
-        ownerItemCount[msg.sender]++;
 
         // emit Offered event
         emit Offered(itemCount, address(_nft), _tokenId, _price, msg.sender);
@@ -85,6 +92,15 @@ contract MarketplaceTokenNFTDemo is ReentrancyGuard {
         uint newPrice
     ) external onlyOwnerOf(_itemId) nonReentrant {
         (items[_itemId].price) = newPrice;
+    }
+
+    function cancellItem(
+        uint _itemId
+    ) external onlyOwnerOf(_itemId) nonReentrant {
+        Item storage item = items[_itemId];
+        item.status = ListingStatus.Cancelled;
+        IERC721(item.nft).transferFrom(address(this), msg.sender, _itemId);
+        emit cancellMarket(_itemId, msg.sender);
     }
 
     function purchaseItem(uint _itemId) external payable nonReentrant {
